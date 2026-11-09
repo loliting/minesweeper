@@ -52,7 +52,10 @@ elif host_machine.system() == 'emscripten'
 endif
 
 executable('Minesweeper',
-    'src/minesweeper.c',
+    [
+      'src/minesweeper.c',
+      'src/board.c'
+    ],
     dependencies: dependencies,
     link_args: link_args,
     name_suffix: name_suffix,
