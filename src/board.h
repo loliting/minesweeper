@@ -21,8 +21,14 @@ typedef enum {
     GS_LOST
 } GameState;
 
+typedef enum {
+    GD_NORMAL = 1,
+    GD_HARD = 2,
+} GameDifficulty;
+
 typedef struct {
     GameState state;
+    GameDifficulty difficulty;
     size_t w, h;
     size_t mines;
     size_t flags_planted;
@@ -34,7 +40,7 @@ typedef struct {
 
 void board_load_textures(void);
 
-Board* board_new(size_t w, size_t h, size_t mines);
+Board* board_new(GameDifficulty diff);
 
 // (fx, fy) - first move
 void board_gen(Board* board, size_t fx, size_t fy);

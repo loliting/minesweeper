@@ -12,6 +12,7 @@
 
 #define GAME_STATE_TEXT "GAME STATE: "
 #define GAME_TIME_TEXT "ELAPSED TIME: "
+#define GAME_DIFFICULTY_TEXT "GAME DIFFICULTY: "
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 
@@ -50,15 +51,25 @@ const char* board_game_state_to_string(GameState gs) {
     return gs_str;
 }
 
-Board* board_new(size_t w, size_t h, size_t mines) {
-    assert(w == h);
-
+Board* board_new(GameDifficulty diff) {
     Board* board = calloc(1, sizeof(Board));
-    board->w = w;
-    board->h = h;
-    board->mines = mines;
     board->state = GS_UNINITIALIZED;
 
+    switch(diff) {
+    default:
+    case GD_NORMAL:
+        board->mines = 10;
+        board->w = 9;
+        board->h = 9;
+        break;
+    case GD_HARD:
+        board->mines = 40;
+        board->w = 16;
+        board->h = 16;
+        break;
+    }
+    board->difficulty = diff;
+    board->flags_planted = 0;
     return board;
 }
 
@@ -101,6 +112,7 @@ void board_gen(Board* board, size_t fx, size_t fy) {
 void board_draw_game_info(Board* board) {
     char game_state_text[128] = GAME_STATE_TEXT;
     char game_time_text[128] = GAME_TIME_TEXT;
+    char game_difficulty_text[128] = GAME_DIFFICULTY_TEXT;
 
     strcpy(game_state_text + sizeof(GAME_STATE_TEXT) - 1,
         board_game_state_to_string(board->state));
@@ -123,8 +135,18 @@ void board_draw_game_info(Board* board) {
         strncpy(game_time_text + sizeof(GAME_TIME_TEXT) - 1, elapsed_time_str, 9);
     }
 
-    DrawText(game_state_text, 10, 10, 24, WHITE);
-    DrawText(game_time_text, 10, 36, 24, WHITE);
+    DrawText(game_state_text, 10, 10, 24, RAYWHITE);
+    DrawText(game_time_text, 10, 36, 24, RAYWHITE);
+    switch (board->difficulty) {
+    default:
+    case GD_NORMAL:
+        strcpy(game_difficulty_text + sizeof(GAME_DIFFICULTY_TEXT) - 1, "NORMAL");
+        break;
+    case GD_HARD:
+        strcpy(game_difficulty_text + sizeof(GAME_DIFFICULTY_TEXT) - 1, "HARD");
+        break;
+    }
+    DrawText(game_difficulty_text, 10, 62, 24, RAYWHITE);
 }
 
 static int board_count_near_mines(Board* board, size_t x, size_t y) {
@@ -187,7 +209,7 @@ void board_draw(Board* board) {
                 // guaranteed to be =< 9
                 if(near_mines) {
                     char text[2] = { '0' + near_mines, '\0' };
-                    DrawText(text, pos.x + 12, pos.y + 6, 48, BLACK);
+                    DrawText(text, pos.x + 6, pos.y + 3, 48.0f * fw / 52.0f, BLACK);
                 }
             }
         }
