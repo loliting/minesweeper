@@ -161,11 +161,11 @@ void board_draw(Board* board) {
             case BF_CLEAR_UNCOVERED:
                 c = LIGHTGRAY;
                 break;
-                case BF_MINE_UNCOVERED:
+            case BF_MINE_UNCOVERED:
                 c = RED;
                 break;
-                case BF_MINE_FLAGGED:
-                case BF_CLEAR_FLAGGED:
+            case BF_MINE_FLAGGED:
+            case BF_CLEAR_FLAGGED:
                 c = GREEN;
                 break;
             }
