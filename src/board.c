@@ -67,6 +67,7 @@ void board_gen(Board* board, size_t fx, size_t fy) {
     board->state = GS_GAME_IN_PROGRESS;
     board->mine_locations = calloc(board->w * board->h, sizeof(BoardField));
     board->mine_locations[fx * board->h + fy] = BF_CLEAR_UNCOVERED;
+    board->flags_planted = 0;
 
     srand(time(NULL));
     for(size_t i = 0; i < board->mines; ++i) {
