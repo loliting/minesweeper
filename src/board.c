@@ -8,10 +8,22 @@
 
 #include <raylib.h>
 
+#include "res.h"
+
 #define GAME_STATE_TEXT "GAME STATE: "
 #define GAME_TIME_TEXT "ELAPSED TIME: "
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
+
+static Image flag_image;
+static Image tile_hidden_image;
+static Image tile_revealed_image;
+static Image mine_image;
+
+static Texture2D flag_texture;
+static Texture2D tile_hidden_texture;
+static Texture2D tile_revealed_texture;
+static Texture2D mine_texture;
 
 static void board_try_uncover(Board* board, size_t x, size_t y);
 static void board_make_move(Board* board, size_t x, size_t y);
@@ -141,42 +153,40 @@ void board_draw(Board* board) {
     size_t loff = 15, toff = 100;
     size_t w = MIN(GetScreenWidth() - 2*loff, GetScreenHeight() - toff);
     size_t fw = w / board->w;
-    DrawRectangle(loff, toff, w, w, LIGHTGRAY);
-
+    DrawRectangle(loff, toff, w, w, GRAY);
+    
+    double scale = fw/32.0f;
     for (size_t i = 0; i < board->w; ++i) {
         for (size_t j = 0; j < board->h; ++j) {
-            Color c = DARKGRAY;
             BoardField cell_state = BF_CLEAR_COVERED;
-            size_t x = loff + i * fw;
-            size_t y = toff + j * fw;
             if(board->state != GS_UNINITIALIZED)
                 cell_state = board->mine_locations[i * board->h + j];
-            switch(cell_state) {
-            case BF_MINE_COVERED:
-                c = DARKGRAY;
-                break;
-            case BF_CLEAR_COVERED:
-                c = DARKGRAY;
-                break;
-            case BF_CLEAR_UNCOVERED:
-                c = LIGHTGRAY;
-                break;
-            case BF_MINE_UNCOVERED:
-                c = RED;
-                break;
-            case BF_MINE_FLAGGED:
-            case BF_CLEAR_FLAGGED:
-                c = GREEN;
-                break;
+            Vector2 pos = {
+                .x = loff + i * fw,
+                .y = toff + j * fw
+            };
+
+            if(cell_state & BF_UNCOVERED_FLAG) {
+                DrawTextureEx(tile_revealed_texture, pos, 0.0f, scale, WHITE);
             }
-            DrawRectangle(x, y, fw, fw, c);
-            DrawRectangleLines(x, y, fw, fw, BLACK);
+            else {
+                DrawTextureEx(tile_hidden_texture, pos, 0.0f, scale, WHITE);
+            }
+
+            if(cell_state & BF_FLAGGED_FLAG) {
+                DrawTextureEx(flag_texture, pos, 0.0f, scale, WHITE);
+            }
+
+            if(cell_state == BF_MINE_UNCOVERED) {
+                DrawTextureEx(mine_texture, pos, 0.0f, scale, WHITE);
+            }
+
             if(cell_state == BF_CLEAR_UNCOVERED) {
                 int near_mines = board_count_near_mines(board, i, j);
                 // guaranteed to be =< 9
                 if(near_mines) {
                     char text[2] = { '0' + near_mines, '\0' };
-                    DrawText(text, x + 12, y + 6, 48, BLACK);
+                    DrawText(text, pos.x + 12, pos.y + 6, 48, BLACK);
                 }
             }
         }
@@ -333,4 +343,34 @@ void board_print(Board* board) {
         }
         printf("\n");
     }
+}
+
+void board_load_textures(void) {
+    flag_image = LoadImageFromMemory(".png", 
+        res_flag_png, res_flag_png_len);
+    tile_hidden_image = LoadImageFromMemory(".png", 
+        res_tile_hidden_png, res_tile_hidden_png_len);
+    tile_revealed_image = LoadImageFromMemory(".png",
+        res_tile_revealed_png, res_tile_revealed_png_len);
+    mine_image = LoadImageFromMemory(".png",
+        res_mine_png, res_mine_png_len);
+    
+    flag_texture = LoadTextureFromImage(flag_image);
+    tile_hidden_texture = LoadTextureFromImage(tile_hidden_image);
+    tile_revealed_texture = LoadTextureFromImage(tile_revealed_image);
+    mine_texture = LoadTextureFromImage(mine_image);
+    printf("IS TEXTURE VALID (flag_texture): %d\n", IsTextureValid(flag_texture));
+    printf("IS TEXTURE VALID (tile_hidden_texture): %d\n", IsTextureValid(tile_hidden_texture));
+    printf("IS TEXTURE VALID (tile_revealed_texture): %d\n", IsTextureValid(tile_revealed_texture));
+    printf("IS TEXTURE VALID (mine_texture): %d\n", IsTextureValid(mine_texture));
+}
+
+__attribute__((destructor)) static void board_destory_textures(void) {
+    UnloadTexture(flag_texture);
+    UnloadTexture(tile_hidden_texture);
+    UnloadTexture(tile_revealed_texture);
+
+    UnloadImage(flag_image);
+    UnloadImage(tile_hidden_image);
+    UnloadImage(tile_revealed_image);
 }

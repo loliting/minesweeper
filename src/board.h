@@ -32,6 +32,8 @@ typedef struct {
     
 } Board;
 
+void board_load_textures(void);
+
 Board* board_new(size_t w, size_t h, size_t mines);
 
 // (fx, fy) - first move

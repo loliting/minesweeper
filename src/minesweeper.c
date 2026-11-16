@@ -8,6 +8,7 @@
 int main(int argc, char* argv[]) {
     SetTargetFPS(60);
     InitWindow(500, 620, "Minesweeper");
+    board_load_textures();
 
     Board *board = board_new(9, 9, 10);
     while (!WindowShouldClose()) {
