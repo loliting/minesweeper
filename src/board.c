@@ -13,8 +13,10 @@
 #define GAME_STATE_TEXT "GAME STATE: "
 #define GAME_TIME_TEXT "ELAPSED TIME: "
 #define GAME_DIFFICULTY_TEXT "GAME DIFFICULTY: "
+#define MINES_LEFT_TEXT "MINES LEFT: "
 
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
+#define MAP_XY_TO_ARR(x, y, w) (size_t)((x) * (w) + (y))
 
 static Image flag_image;
 static Image tile_hidden_image;
@@ -59,13 +61,11 @@ Board* board_new(GameDifficulty diff) {
     default:
     case GD_NORMAL:
         board->mines = 10;
-        board->w = 9;
-        board->h = 9;
+        board->size = 9;
         break;
     case GD_HARD:
         board->mines = 40;
-        board->w = 16;
-        board->h = 16;
+        board->size = 16;
         break;
     }
     board->difficulty = diff;
@@ -73,49 +73,70 @@ Board* board_new(GameDifficulty diff) {
     return board;
 }
 
-void board_gen(Board* board, size_t fx, size_t fy) {
+void board_gen(Board* board, Vector2 first_move) {
     board->start_time = time(NULL);
     board->state = GS_GAME_IN_PROGRESS;
-    board->mine_locations = calloc(board->w * board->h, sizeof(BoardField));
-    board->mine_locations[fx * board->h + fy] = BF_CLEAR_UNCOVERED;
+    board->tiles = calloc(board->size * board->size, sizeof(BoardTile));
+    board->tiles[MAP_XY_TO_ARR(first_move.x, first_move.y, board->size)] = BT_CLEAR_UNCOVERED;
     board->flags_planted = 0;
 
     srand(time(NULL));
     for(size_t i = 0; i < board->mines; ++i) {
-        double pos;
+        double rng;
+        size_t pos;
         regen:
-        pos = rand();
-        pos /= RAND_MAX;
-        pos *= board->w * board->h;
-        pos = round(pos);
-        if(board->mine_locations[(int)pos]) {
+        rng = rand();
+        rng /= RAND_MAX;
+        rng *= board->size * board->size;
+        pos = round(rng);
+        if(board->tiles[pos]) {
             goto regen;
         }
 
-        board->mine_locations[(int)pos] = BF_MINE_COVERED;
+        board->tiles[(int)pos] = BT_MINE_COVERED;
     }
 
-    board->mine_locations[fx * board->h + fy] = BF_CLEAR_COVERED;
+    board->tiles[MAP_XY_TO_ARR(first_move.x, first_move.y, board->size)] = BT_CLEAR_COVERED;
     
-    board_try_uncover(board, fx, fy);
-    board_try_uncover(board, fx, fy + 1);
-    board_try_uncover(board, fx, fy - 1);
-    board_try_uncover(board, fx + 1, fy);
-    board_try_uncover(board, fx + 1, fy - 1);
-    board_try_uncover(board, fx + 1, fy + 1);
-    board_try_uncover(board, fx - 1, fy);
-    board_try_uncover(board, fx - 1, fy + 1);
-    board_try_uncover(board, fx - 1, fy - 1);
-    board_try_uncover(board, fx, fy - 1);
+    board_try_uncover(board, first_move.x, first_move.y);
+
+    // TO JEST OBRZYDLIWE!
+    // TODO: nie wiem czy to dziala jak ma,
+    // mozliwe ze chcemy badac near_mines zamiast rownosci do BT_CLEAR_COVERED
+    if(first_move.y > 0 
+     && board->tiles[MAP_XY_TO_ARR(first_move.x, first_move.y - 1, board->size)] == BT_CLEAR_COVERED) {
+        board_try_uncover(board, first_move.x, first_move.y - 1);
+        if(first_move.x + 1 < board->size 
+         && board->tiles[MAP_XY_TO_ARR(first_move.x + 1, first_move.y - 1, board->size)] == BT_CLEAR_COVERED)
+            board_try_uncover(board, first_move.x + 1, first_move.y - 1);
+        if(first_move.x > 0
+         && board->tiles[MAP_XY_TO_ARR(first_move.x - 1, first_move.y - 1, board->size)] == BT_CLEAR_COVERED)
+            board_try_uncover(board, first_move.x - 1, first_move.y - 1);
+
+    }
+    if(first_move.y + 1 < board->size 
+     && board->tiles[MAP_XY_TO_ARR(first_move.x, first_move.y + 1, board->size)] == BT_CLEAR_COVERED) {
+        board_try_uncover(board, first_move.x, first_move.y + 1);
+        if(first_move.x + 1 < board->size 
+         && board->tiles[MAP_XY_TO_ARR(first_move.x + 1, first_move.y + 1, board->size)] == BT_CLEAR_COVERED)
+            board_try_uncover(board, first_move.x + 1, first_move.y + 1);
+        if(first_move.x > 0
+         && board->tiles[MAP_XY_TO_ARR(first_move.x - 1, first_move.y + 1, board->size)] == BT_CLEAR_COVERED)
+            board_try_uncover(board, first_move.x - 1, first_move.y + 1);
+    }
+    if(first_move.x + 1 < board->size 
+        && board->tiles[MAP_XY_TO_ARR(first_move.x + 1, first_move.y, board->size)] == BT_CLEAR_COVERED)
+        board_try_uncover(board, first_move.x + 1, first_move.y);
+    if(first_move.x > 0 
+        && board->tiles[MAP_XY_TO_ARR(first_move.x - 1, first_move.y, board->size)] == BT_CLEAR_COVERED)
+        board_try_uncover(board, first_move.x - 1, first_move.y);
 }
 
 void board_draw_game_info(Board* board) {
     char game_state_text[128] = GAME_STATE_TEXT;
     char game_time_text[128] = GAME_TIME_TEXT;
     char game_difficulty_text[128] = GAME_DIFFICULTY_TEXT;
-
-    strcpy(game_state_text + sizeof(GAME_STATE_TEXT) - 1,
-        board_game_state_to_string(board->state));
+    char mines_left_text[128] = MINES_LEFT_TEXT;
 
     if(board->start_time == 0) {
         strcpy(game_time_text + sizeof(GAME_TIME_TEXT) - 1,
@@ -134,9 +155,6 @@ void board_draw_game_info(Board* board) {
         sprintf(elapsed_time_str, "%02hhu:%02hhu:%02hhu", h, m, s);
         strncpy(game_time_text + sizeof(GAME_TIME_TEXT) - 1, elapsed_time_str, 9);
     }
-
-    DrawText(game_state_text, 10, 10, 24, RAYWHITE);
-    DrawText(game_time_text, 10, 36, 24, RAYWHITE);
     switch (board->difficulty) {
     default:
     case GD_NORMAL:
@@ -146,65 +164,71 @@ void board_draw_game_info(Board* board) {
         strcpy(game_difficulty_text + sizeof(GAME_DIFFICULTY_TEXT) - 1, "HARD");
         break;
     }
+    strcpy(game_state_text + sizeof(GAME_STATE_TEXT) - 1,
+        board_game_state_to_string(board->state));
+    sprintf(mines_left_text + sizeof(MINES_LEFT_TEXT) - 1, "%zu", board->mines - board->flags_planted);
+
+    DrawText(game_state_text, 10, 10, 24, RAYWHITE);
+    DrawText(game_time_text, 10, 36, 24, RAYWHITE);
     DrawText(game_difficulty_text, 10, 62, 24, RAYWHITE);
+    DrawText(mines_left_text, 10, GetScreenHeight() - 36, 24, RAYWHITE);
 }
 
 static int board_count_near_mines(Board* board, size_t x, size_t y) {
     int near_mines = 0;
-    if(x + 1 < board->w) {
-        near_mines += !!(board->mine_locations[(x + 1) * board->w + y] & BF_MINE_FLAG);
-        if(y + 1 < board->w)
-            near_mines += !!(board->mine_locations[(x + 1) * board->w + y + 1] & BF_MINE_FLAG);
+    if(x + 1 < board->size) {
+        near_mines += !!(board->tiles[MAP_XY_TO_ARR(x + 1, y, board->size)] & BT_MINE_FLAG);
+        if(y + 1 < board->size)
+            near_mines += !!(board->tiles[MAP_XY_TO_ARR(x + 1, y + 1, board->size)] & BT_MINE_FLAG);
         if(y > 0)
-            near_mines += !!(board->mine_locations[(x + 1) * board->w + y - 1] & BF_MINE_FLAG);
+            near_mines += !!(board->tiles[MAP_XY_TO_ARR(x + 1, y - 1, board->size)] & BT_MINE_FLAG);
     }
     if(x > 0) {
-        near_mines += !!(board->mine_locations[(x - 1) * board->w + y] & BF_MINE_FLAG);
-        if(y + 1 < board->w)
-            near_mines += !!(board->mine_locations[(x - 1) * board->w + y + 1] & BF_MINE_FLAG);
+        near_mines += !!(board->tiles[MAP_XY_TO_ARR(x - 1, y, board->size)] & BT_MINE_FLAG);
+        if(y + 1 < board->size)
+            near_mines += !!(board->tiles[MAP_XY_TO_ARR(x - 1, y + 1, board->size)] & BT_MINE_FLAG);
         if(y > 0)
-            near_mines += !!(board->mine_locations[(x - 1) * board->w + y - 1] & BF_MINE_FLAG);
+            near_mines += !!(board->tiles[MAP_XY_TO_ARR(x - 1, y - 1, board->size)] & BT_MINE_FLAG);
     }
     if(y > 0)
-        near_mines += !!(board->mine_locations[x * board->w + y - 1] & BF_MINE_FLAG);
-    if(y + 1< board->w)
-        near_mines += !!(board->mine_locations[x * board->w + y + 1] & BF_MINE_FLAG);
+        near_mines += !!(board->tiles[MAP_XY_TO_ARR(x, y - 1, board->size)] & BT_MINE_FLAG);
+    if(y + 1 < board->size)
+        near_mines += !!(board->tiles[MAP_XY_TO_ARR(x, y + 1, board->size)] & BT_MINE_FLAG);
     return near_mines;
 }
 
 void board_draw(Board* board) {
     size_t loff = 15, toff = 100;
     size_t w = MIN(GetScreenWidth() - 2*loff, GetScreenHeight() - toff);
-    size_t fw = w / board->w;
-    DrawRectangle(loff, toff, w, w, GRAY);
+    size_t fw = w / board->size;
     
     double scale = fw/32.0f;
-    for (size_t i = 0; i < board->w; ++i) {
-        for (size_t j = 0; j < board->h; ++j) {
-            BoardField cell_state = BF_CLEAR_COVERED;
+    for (size_t i = 0; i < board->size; ++i) {
+        for (size_t j = 0; j < board->size; ++j) {
+            BoardTile cell_state = BT_CLEAR_COVERED;
             if(board->state != GS_UNINITIALIZED)
-                cell_state = board->mine_locations[i * board->h + j];
+                cell_state = board->tiles[i * board->size + j];
             Vector2 pos = {
                 .x = loff + i * fw,
                 .y = toff + j * fw
             };
 
-            if(cell_state & BF_UNCOVERED_FLAG) {
+            if(cell_state & BT_UNCOVERED_FLAG) {
                 DrawTextureEx(tile_revealed_texture, pos, 0.0f, scale, WHITE);
             }
             else {
                 DrawTextureEx(tile_hidden_texture, pos, 0.0f, scale, WHITE);
             }
 
-            if(cell_state & BF_FLAGGED_FLAG) {
+            if(cell_state & BT_FLAGGED_FLAG) {
                 DrawTextureEx(flag_texture, pos, 0.0f, scale, WHITE);
             }
 
-            if(cell_state == BF_MINE_UNCOVERED) {
+            if(cell_state == BT_MINE_UNCOVERED) {
                 DrawTextureEx(mine_texture, pos, 0.0f, scale, WHITE);
             }
 
-            if(cell_state == BF_CLEAR_UNCOVERED) {
+            if(cell_state == BT_CLEAR_UNCOVERED) {
                 int near_mines = board_count_near_mines(board, i, j);
                 // guaranteed to be =< 9
                 if(near_mines) {
@@ -217,12 +241,12 @@ void board_draw(Board* board) {
 }
 
 static void board_try_uncover(Board* board, size_t x, size_t y) {
-    if(x >= board->w || y >= board->w)
+    if(x >= board->size || y >= board->size)
         return;
-    if(board->mine_locations[x * board->w + y] != BF_CLEAR_COVERED)
+    if(board->tiles[MAP_XY_TO_ARR(x, y, board->size)] != BT_CLEAR_COVERED)
         return;
     int near_mines = board_count_near_mines(board, x, y);
-    board->mine_locations[x * board->w + y] = BF_CLEAR_UNCOVERED;
+    board->tiles[MAP_XY_TO_ARR(x, y, board->size)] = BT_CLEAR_UNCOVERED;
     if(near_mines) {
         return;
     }
@@ -239,16 +263,18 @@ static void board_try_uncover(Board* board, size_t x, size_t y) {
 }
 
 static void board_make_move(Board* board, size_t x, size_t y) {
-    switch(board->mine_locations[x * board->w + y]) {
-    case BF_MINE_COVERED:
-        board->mine_locations[x * board->w + y] = BF_MINE_UNCOVERED;
+    switch(board->tiles[MAP_XY_TO_ARR(x, y, board->size)]) {
+    case BT_MINE_COVERED:
+        board->tiles[MAP_XY_TO_ARR(x, y, board->size)] = BT_MINE_UNCOVERED;
         board->state = GS_LOST;
-        for(size_t i = 0; i < board->w * board->w; ++i) {
-            if(board->mine_locations[i] == BF_MINE_COVERED)
-                board->mine_locations[i] |= BF_UNCOVERED_FLAG;
+        for(size_t i = 0; i < board->size * board->size; ++i) {
+            if(board->tiles[i] == BT_MINE_COVERED)
+                board->tiles[i] |= BT_UNCOVERED_FLAG;
+            if(board->tiles[i] == BT_CLEAR_FLAGGED)
+                board->tiles[i] &= ~BT_FLAGGED_FLAG;
         }
         break;
-    case BF_CLEAR_COVERED:
+    case BT_CLEAR_COVERED:
         board_try_uncover(board, x, y);
         break;
     default:
@@ -264,25 +290,24 @@ void board_handle_rmb_press(Board* board) {
     Vector2 mpos = GetMousePosition();
     size_t loff = 15, toff = 100;
     size_t w = MIN(GetScreenWidth() - 2*loff, GetScreenHeight() - toff);
-    size_t fw = w / board->w;
+    size_t fw = w / board->size;
     w -= w % fw;
 
     if(mpos.x >= loff && w + loff >= mpos.x
         && mpos.y >= toff && w + toff >= mpos.y)
     {
         size_t cell_x = (mpos.x - loff) / fw, cell_y = (mpos.y - toff) / fw;
-        printf("%zu %zu\n", cell_x, cell_y);
-        switch(board->mine_locations[cell_x * board->w + cell_y]) {
-        case BF_MINE_FLAGGED:
-        case BF_CLEAR_FLAGGED:
-            board->mine_locations[cell_x * board->w + cell_y] &= ~BF_FLAGGED_FLAG;
+        switch(board->tiles[MAP_XY_TO_ARR(cell_x, cell_y, board->size)]) {
+        case BT_MINE_FLAGGED:
+        case BT_CLEAR_FLAGGED:
+            board->tiles[MAP_XY_TO_ARR(cell_x, cell_y, board->size)] &= ~BT_FLAGGED_FLAG;
             board->flags_planted -= 1;
             break;
-        case BF_CLEAR_COVERED:
-        case BF_MINE_COVERED:
+        case BT_CLEAR_COVERED:
+        case BT_MINE_COVERED:
             if(board->flags_planted >= board->mines)
                 return;
-            board->mine_locations[cell_x * board->w + cell_y] |= BF_FLAGGED_FLAG;
+            board->tiles[MAP_XY_TO_ARR(cell_x, cell_y, board->size)] |= BT_FLAGGED_FLAG;
             board->flags_planted += 1;
             break;
         default:
@@ -291,9 +316,9 @@ void board_handle_rmb_press(Board* board) {
     }
     if(board->flags_planted == board->mines) {
         size_t correct_flags = 0;
-        for(size_t i = 0; i < board->w; ++i) {
-            for(size_t j = 0; j < board->h; ++j) {
-                if(board->mine_locations[i * board->w + j] == BF_MINE_FLAGGED)
+        for(size_t i = 0; i < board->size; ++i) {
+            for(size_t j = 0; j < board->size; ++j) {
+                if(board->tiles[MAP_XY_TO_ARR(i, j, board->size)] == BT_MINE_FLAGGED)
                     ++correct_flags;
             }
         }
@@ -309,22 +334,21 @@ void board_handle_lmb_press(Board* board) {
 
     size_t loff = 15, toff = 100;
     size_t w = MIN(GetScreenWidth() - 2*loff, GetScreenHeight() - toff);
-    size_t fw = w / board->w;
+    size_t fw = w / board->size;
     w -= w % fw;
 
     if(mpos.x >= loff && w + loff >= mpos.x
         && mpos.y >= toff && w + toff >= mpos.y)
     {
         size_t cell_x = (mpos.x - loff) / fw, cell_y = (mpos.y - toff) / fw;
-        printf("%zu %zu\n", cell_x, cell_y);
         switch (board->state) {
         case GS_UNINITIALIZED:
-            board_gen(board, cell_x, cell_y);
+            board_gen(board, (Vector2){ .x = cell_x, .y = cell_y });
             break;
         case GS_LOST:
         case GS_WON:
-            free(board->mine_locations);
-            board->mine_locations = 0;
+            free(board->tiles);
+            board->tiles = NULL;
             board->state = GS_UNINITIALIZED;
             break;
         case GS_GAME_IN_PROGRESS:
@@ -340,27 +364,26 @@ void board_print(Board* board) {
         return;
     }
     printf("board:\n");
-    for(size_t i = 0; i < board->w; ++i) {
-        for(size_t j = 0; j < board->h; ++j) {
-            switch(board->mine_locations[j * board->h + i]) {
-            case BF_MINE_COVERED:
-            case BF_MINE_UNCOVERED:
+    for(size_t i = 0; i < board->size; ++i) {
+        for(size_t j = 0; j < board->size; ++j) {
+            switch(board->tiles[MAP_XY_TO_ARR(j, i, board->size)]) {
+            case BT_MINE_COVERED:
+            case BT_MINE_UNCOVERED:
                 printf("M ");
                 break;
-            case BF_CLEAR_UNCOVERED:
+            case BT_CLEAR_UNCOVERED:
                 printf("  ");
                 break;
-            case BF_CLEAR_COVERED:
+            case BT_CLEAR_COVERED:
                 printf("C ");
                 break;
-            case BF_MINE_FLAGGED:
+            case BT_MINE_FLAGGED:
                 printf("F ");
                 break;
-            case BF_CLEAR_FLAGGED:
+            case BT_CLEAR_FLAGGED:
                 printf("f ");
                 break;
             default:
-                printf("%d ", board->mine_locations[j * board->h + i]);
                 break;
             }
         }
