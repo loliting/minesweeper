@@ -35,8 +35,7 @@ int main(int argc, char* argv[]) {
     Board *board = board_new(difficulty);
     while (!WindowShouldClose()) {
         BeginDrawing();
-        ClearBackground(GRAY);
-
+        ClearBackground((Color){ 30, 30, 30});
         board_draw_game_info(board);
 
         board_draw(board);
