@@ -1,7 +1,7 @@
 #include <raylib.h>
 #include <string.h>
-#include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "board.h"
 
@@ -28,23 +28,11 @@ int main(int argc, char* argv[]) {
         difficulty = GD_NORMAL;
     }
 
-
-    SetTargetFPS(60);
     InitWindow(500, 620, "Minesweeper");
     board_load_textures();
     Board *board = board_new(difficulty);
     while (!WindowShouldClose()) {
-        BeginDrawing();
-        ClearBackground((Color){ 30, 30, 30});
-        board_draw_game_info(board);
-
-        board_draw(board);
-        if(IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-            board_handle_lmb_press(board);
-        if(IsMouseButtonReleased(MOUSE_BUTTON_RIGHT))
-            board_handle_rmb_press(board);
-
-        EndDrawing();
+        board_game_loop(board);
     }
     CloseWindow();
 

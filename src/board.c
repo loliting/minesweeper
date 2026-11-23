@@ -282,7 +282,7 @@ static void board_make_move(Board* board, size_t x, size_t y) {
     }
 }
 
-void board_handle_rmb_press(Board* board) {
+static void board_handle_rmb_press(Board* board) {
     if(board->state != GS_GAME_IN_PROGRESS) {
         return;
     }
@@ -329,7 +329,7 @@ void board_handle_rmb_press(Board* board) {
     board_print(board);
 }
 
-void board_handle_lmb_press(Board* board) {
+static void board_handle_lmb_press(Board* board) {
     Vector2 mpos = GetMousePosition();
 
     size_t loff = 15, toff = 100;
@@ -419,4 +419,17 @@ __attribute__((destructor)) static void board_destory_textures(void) {
     UnloadImage(flag_image);
     UnloadImage(tile_hidden_image);
     UnloadImage(tile_revealed_image);
+}
+
+void board_game_loop(Board* board) {
+    BeginDrawing();
+    ClearBackground((Color){ 30, 30, 30});
+    board_draw_game_info(board);
+    board_draw(board);
+    EndDrawing();
+
+    if(IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        board_handle_lmb_press(board);
+    if(IsMouseButtonReleased(MOUSE_BUTTON_RIGHT))
+        board_handle_rmb_press(board);
 }

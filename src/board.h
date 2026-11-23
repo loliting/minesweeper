@@ -49,6 +49,6 @@ void board_gen(Board* board, Vector2 first_move);
 const char* board_game_state_to_string(GameState);
 void board_draw_game_info(Board* board);
 void board_draw(Board* board);
-void board_handle_lmb_press(Board* board);
-void board_handle_rmb_press(Board* board);
 void board_print(Board* board);
+
+void board_game_loop(Board* board);
