@@ -30,6 +30,7 @@ static Texture2D mine_texture;
 
 static void board_try_uncover(Board* board, size_t x, size_t y);
 static void board_make_move(Board* board, size_t x, size_t y);
+static int board_count_near_mines(Board* board, size_t x, size_t y);
 
 const char* board_game_state_to_string(GameState gs) {
     const char* gs_str = NULL;
@@ -101,34 +102,32 @@ void board_gen(Board* board, Vector2 first_move) {
     board_try_uncover(board, first_move.x, first_move.y);
 
     // TO JEST OBRZYDLIWE!
-    // TODO: nie wiem czy to dziala jak ma,
-    // mozliwe ze chcemy badac near_mines zamiast rownosci do BT_CLEAR_COVERED
     if(first_move.y > 0 
-     && board->tiles[MAP_XY_TO_ARR(first_move.x, first_move.y - 1, board->size)] == BT_CLEAR_COVERED) {
+     && !board_count_near_mines(board, first_move.x, first_move.y - 1)) {
         board_try_uncover(board, first_move.x, first_move.y - 1);
         if(first_move.x + 1 < board->size 
-         && board->tiles[MAP_XY_TO_ARR(first_move.x + 1, first_move.y - 1, board->size)] == BT_CLEAR_COVERED)
+         && !board_count_near_mines(board, first_move.x + 1, first_move.y - 1))
             board_try_uncover(board, first_move.x + 1, first_move.y - 1);
         if(first_move.x > 0
-         && board->tiles[MAP_XY_TO_ARR(first_move.x - 1, first_move.y - 1, board->size)] == BT_CLEAR_COVERED)
+         && !board_count_near_mines(board, first_move.x - 1, first_move.y - 1))
             board_try_uncover(board, first_move.x - 1, first_move.y - 1);
 
     }
     if(first_move.y + 1 < board->size 
-     && board->tiles[MAP_XY_TO_ARR(first_move.x, first_move.y + 1, board->size)] == BT_CLEAR_COVERED) {
+     && !board_count_near_mines(board, first_move.x, first_move.y + 1)) {
         board_try_uncover(board, first_move.x, first_move.y + 1);
         if(first_move.x + 1 < board->size 
-         && board->tiles[MAP_XY_TO_ARR(first_move.x + 1, first_move.y + 1, board->size)] == BT_CLEAR_COVERED)
+         && !board_count_near_mines(board, first_move.x + 1, first_move.y + 1))
             board_try_uncover(board, first_move.x + 1, first_move.y + 1);
         if(first_move.x > 0
-         && board->tiles[MAP_XY_TO_ARR(first_move.x - 1, first_move.y + 1, board->size)] == BT_CLEAR_COVERED)
+         && !board_count_near_mines(board, first_move.x - 1, first_move.y + 1))
             board_try_uncover(board, first_move.x - 1, first_move.y + 1);
     }
     if(first_move.x + 1 < board->size 
-        && board->tiles[MAP_XY_TO_ARR(first_move.x + 1, first_move.y, board->size)] == BT_CLEAR_COVERED)
+        && !board_count_near_mines(board, first_move.x + 1, first_move.y))
         board_try_uncover(board, first_move.x + 1, first_move.y);
     if(first_move.x > 0 
-        && board->tiles[MAP_XY_TO_ARR(first_move.x - 1, first_move.y, board->size)] == BT_CLEAR_COVERED)
+        && !board_count_near_mines(board, first_move.x - 1, first_move.y))
         board_try_uncover(board, first_move.x - 1, first_move.y);
 }
 
